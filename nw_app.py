@@ -303,7 +303,7 @@ def main():
                     mime="image/png",
                 )
 
-                plt.close(fig)
+                plt.close()
             except Exception as e:
                 st.error(f"Visualization failed: {str(e)}")
         else:
