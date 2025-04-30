@@ -12,11 +12,208 @@ import sys
 # Add the current directory to the path to import the NeedlemanWunsch class
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import the NeedlemanWunsch class from the original file
+# Import the NeedlemanWunsch class and extend it with our scalable visualizations
 from needleman_wunsch import NeedlemanWunsch
 
 
+# Add the scalable visualization methods to the NeedlemanWunsch class
+def add_scalable_visualizations():
+    # Add the improved visualization methods to the NeedlemanWunsch class
+    NeedlemanWunsch.visualize_matrix_scalable = visualize_matrix_scalable
+    NeedlemanWunsch.visualize_alignment_scalable = visualize_alignment_scalable
+
+
+# Define the scalable visualization functions
+def visualize_matrix_scalable(self, seq1, seq2, title="Score Matrix", max_size=20):
+    """
+    Visualize the score matrix as a heatmap with automatic scaling for larger sequences.
+
+    Parameters:
+    - seq1, seq2: The sequences being aligned
+    - title: The title for the plot
+    - max_size: Maximum full-detail visualization size (for each dimension)
+    """
+    if self.score_matrix is None:
+        raise ValueError("Run align() first to generate the score matrix.")
+
+    m, n = len(seq1) + 1, len(seq2) + 1
+
+    # Check if sequences are too long for detailed visualization
+    if m > max_size + 1 or n > max_size + 1:
+        # For larger sequences, use a different visualization approach
+        plt.figure(figsize=(12, 10))
+
+        # Create enhanced heatmap for larger matrices
+        ax = sns.heatmap(self.score_matrix, cmap="YlGnBu",
+                         xticklabels=False, yticklabels=False)
+
+        # Add more informative title
+        plt.title(f"{title} ({m - 1}x{n - 1} matrix)")
+
+        # Add axis labels
+        plt.xlabel(f"Sequence 2 ({n - 1} bases)")
+        plt.ylabel(f"Sequence 1 ({m - 1} bases)")
+
+        # Add corner annotations to help with orientation
+        # Add a colorbar with better labeling
+        cbar = ax.collections[0].colorbar
+        cbar.set_label('Alignment Score')
+
+        # Add optimal score annotation
+        optimal_score = self.score_matrix[m - 1, n - 1]
+        plt.annotate(f'Optimal Score: {optimal_score:.1f}',
+                     xy=(0.5, 0.05), xycoords='figure fraction',
+                     bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.8),
+                     ha='center', fontsize=12)
+    else:
+        # For smaller sequences, use the original detailed visualization
+        plt.figure(figsize=(10, 8))
+
+        # Create labels with sequence characters
+        row_labels = [''] + list(seq1)
+        col_labels = [''] + list(seq2)
+
+        # Create heatmap with annotations
+        ax = sns.heatmap(self.score_matrix, annot=True, fmt=".1f", cmap="YlGnBu",
+                         xticklabels=col_labels, yticklabels=row_labels)
+
+        plt.title(f"{title} - Optimal Score: {self.score_matrix[m - 1, n - 1]:.1f}")
+
+    plt.tight_layout()
+    return plt
+
+
+def visualize_alignment_scalable(self, aligned_seq1, aligned_seq2, alignment_visual, max_width=80):
+    """
+    Visualize the sequence alignment with highlighting, handling longer sequences.
+
+    Parameters:
+    - aligned_seq1, aligned_seq2: The aligned sequences
+    - alignment_visual: Visual representation of the alignment
+    - max_width: Maximum number of characters to show in a single view
+    """
+    total_length = len(aligned_seq1)
+
+    if total_length <= max_width:
+        # For shorter alignments, use the original visualization
+        plt.figure(figsize=(min(total_length / 6 + 2, 20), 4))
+
+        # Convert alignment to color coding
+        colors = []
+        for char in alignment_visual:
+            if char == '|':  # Match
+                colors.append('green')
+            elif char == '.':  # Mismatch
+                colors.append('red')
+            else:  # Gap
+                colors.append('grey')
+
+        # Calculate position for text
+        y_positions = [2, 1, 0]  # For seq1, alignment markers, seq2
+
+        # Plot sequences and alignment
+        for i, (seq, y) in enumerate(zip([aligned_seq1, alignment_visual, aligned_seq2], y_positions)):
+            for j, (char, color) in enumerate(zip(seq, colors)):
+                plt.text(j, y, char, ha='center', va='center', color='black',
+                         backgroundcolor=color if i != 1 else 'white',
+                         alpha=0.3 if i != 1 else 1.0, fontfamily='monospace', fontsize=15)
+
+        # Add a legend
+        legend_elements = [
+            Patch(facecolor='green', alpha=0.3, label='Match'),
+            Patch(facecolor='red', alpha=0.3, label='Mismatch'),
+            Patch(facecolor='grey', alpha=0.3, label='Gap')
+        ]
+        plt.legend(handles=legend_elements, loc='upper center',
+                   bbox_to_anchor=(0.5, -0.15), ncol=3)
+
+        # Set plot properties
+        plt.xlim(-1, len(aligned_seq1))
+        plt.ylim(-1, 3)
+        plt.axis('off')
+        plt.title('Sequence Alignment Visualization')
+    else:
+        # For longer alignments, create a chunked visualization
+        # We'll show the first chunk and stats about the whole alignment
+        plt.figure(figsize=(16, 8))
+
+        # First section: Summary statistics
+        plt.subplot(2, 1, 1)
+
+        # Calculate alignment statistics
+        matches = alignment_visual.count('|')
+        mismatches = alignment_visual.count('.')
+        gaps = alignment_visual.count(' ')
+
+        match_percent = (matches / total_length) * 100
+        mismatch_percent = (mismatches / total_length) * 100
+        gap_percent = (gaps / total_length) * 100
+
+        # Create a bar chart of alignment statistics
+        categories = ['Matches', 'Mismatches', 'Gaps']
+        values = [match_percent, mismatch_percent, gap_percent]
+        colors = ['green', 'red', 'grey']
+
+        plt.bar(categories, values, color=colors, alpha=0.6)
+        plt.title(f'Alignment Statistics (Total Length: {total_length} bp)')
+        plt.ylabel('Percentage (%)')
+        plt.ylim(0, 100)
+
+        # Add text labels
+        for i, v in enumerate(values):
+            plt.text(i, v + 2, f"{v:.1f}%", ha='center')
+
+        # Second section: First chunk of the alignment
+        plt.subplot(2, 1, 2)
+
+        # Only display the first chunk
+        display_length = min(max_width, total_length)
+
+        # Convert alignment to color coding for the displayed chunk
+        colors = []
+        for char in alignment_visual[:display_length]:
+            if char == '|':  # Match
+                colors.append('green')
+            elif char == '.':  # Mismatch
+                colors.append('red')
+            else:  # Gap
+                colors.append('grey')
+
+        # Calculate position for text
+        y_positions = [2, 1, 0]  # For seq1, alignment markers, seq2
+
+        # Plot sequences and alignment for the displayed chunk
+        for i, (seq, y) in enumerate(zip([aligned_seq1[:display_length],
+                                          alignment_visual[:display_length],
+                                          aligned_seq2[:display_length]], y_positions)):
+            for j, (char, color) in enumerate(zip(seq, colors)):
+                plt.text(j, y, char, ha='center', va='center', color='black',
+                         backgroundcolor=color if i != 1 else 'white',
+                         alpha=0.3 if i != 1 else 1.0, fontfamily='monospace', fontsize=12)
+
+        # Set plot properties
+        plt.xlim(-1, display_length)
+        plt.ylim(-1, 3)
+        plt.axis('off')
+        plt.title(f'First {display_length} positions of alignment (showing {display_length}/{total_length})')
+
+        # Add a legend
+        legend_elements = [
+            Patch(facecolor='green', alpha=0.3, label='Match'),
+            Patch(facecolor='red', alpha=0.3, label='Mismatch'),
+            Patch(facecolor='grey', alpha=0.3, label='Gap')
+        ]
+        plt.legend(handles=legend_elements, loc='upper center',
+                   bbox_to_anchor=(0.5, -0.15), ncol=3)
+
+    plt.tight_layout()
+    return plt
+
+
 def main():
+    # Add the scalable visualization methods to the NeedlemanWunsch class
+    add_scalable_visualizations()
+
     st.set_page_config(
         page_title="Needleman-Wunsch Sequence Alignment",
         page_icon="🧬",
@@ -44,15 +241,26 @@ def main():
         st.subheader("Sequence Type")
         seq_type = st.radio("Select Sequence Type", ["DNA/RNA", "Protein"])
 
+        # Visualization parameters
+        st.subheader("Visualization Settings")
+        max_size = st.slider("Max Size for Detailed View", 10, 50, 20, 5,
+                             help="Maximum sequence length for detailed visualization. Larger sequences will use simplified views.")
+        max_alignment_width = st.slider("Max Alignment Display Width", 40, 200, 80, 10,
+                                        help="Maximum number of characters to show in the alignment visualization")
+
         # Load example sequences
         st.subheader("Example Sequences")
-        if st.button("Load DNA Example"):
-            st.session_state.seq1 = "GCATGCU"
-            st.session_state.seq2 = "GATTACA"
+        if st.button("Load Short DNA Example"):
+            st.session_state.seq1 = "ATGGTGCATCTGACTCCTGA"
+            st.session_state.seq2 = "ATGGTGCATCTGACTCCTGT"
+
+        if st.button("Load Medium DNA Example"):
+            st.session_state.seq1 = "ATGGTGCATCTGACTCCTGAGGAGAAGTCTGCCGTTACTGCCCTGTGGGGCAAGGTGAACGTG"
+            st.session_state.seq2 = "ATGGTGCATCTGACTCCTGTGGAGAAGTCTGCCGTTACTGCCCTGTGGGGCAAGGTGAACGTG"
 
         if st.button("Load Protein Example"):
-            st.session_state.seq1 = "HEAGAWGHEE"
-            st.session_state.seq2 = "PAWHEAE"
+            st.session_state.seq1 = "MVHLTPEEKSAVTALWGKV"
+            st.session_state.seq2 = "MVHLTPEEKTAVTALWGKV"
 
     # Create tabs for input, results, and visualization
     tab1, tab2, tab3 = st.tabs(["Sequence Input", "Alignment Results", "Visualizations"])
@@ -68,6 +276,13 @@ def main():
     # Tab 1: Sequence Input
     with tab1:
         st.header("Input Sequences")
+
+        # Display sequence length warning if needed
+        if len(st.session_state.seq1) > 200 or len(st.session_state.seq2) > 200:
+            st.warning("""
+            ⚠️ **Large Sequence Warning**: One or both of your sequences is quite long. 
+            The alignment will work but detailed visualizations will be simplified.
+            """)
 
         # Text areas for sequence input
         col1, col2 = st.columns(2)
@@ -116,6 +331,16 @@ def main():
         st.session_state.seq1 = seq1
         st.session_state.seq2 = seq2
 
+        # Display sequence information
+        st.markdown("### Sequence Information")
+        seq_info_col1, seq_info_col2 = st.columns(2)
+
+        with seq_info_col1:
+            st.metric("Sequence 1 Length", len(seq1) if seq1 else 0)
+
+        with seq_info_col2:
+            st.metric("Sequence 2 Length", len(seq2) if seq2 else 0)
+
         # Alignment button
         st.markdown("---")
         align_btn = st.button("Run Alignment", use_container_width=True, type="primary")
@@ -132,7 +357,7 @@ def main():
             elif not seq1 or not seq2:
                 st.error("Please enter both sequences")
             else:
-                # Run alignment
+                # Run alignment with progress tracking
                 with st.spinner("Running alignment..."):
                     try:
                         # Initialize the NeedlemanWunsch object with parameters
@@ -146,8 +371,19 @@ def main():
                         seq1_clean = seq1.upper().strip()
                         seq2_clean = seq2.upper().strip()
 
-                        # Perform alignment
-                        aligned_seq1, aligned_seq2, alignment_visual, score = nw.align(seq1_clean, seq2_clean)
+                        # Show progress message for larger sequences
+                        if len(seq1_clean) > 100 or len(seq2_clean) > 100:
+                            progress_bar = st.progress(0)
+                            st.info("Aligning large sequences - this may take a moment...")
+
+                            # Perform alignment
+                            aligned_seq1, aligned_seq2, alignment_visual, score = nw.align(seq1_clean, seq2_clean)
+
+                            # Update progress
+                            progress_bar.progress(100)
+                        else:
+                            # Perform alignment for smaller sequences
+                            aligned_seq1, aligned_seq2, alignment_visual, score = nw.align(seq1_clean, seq2_clean)
 
                         # Store results in session state
                         st.session_state.alignment_results = {
@@ -164,6 +400,7 @@ def main():
                         st.rerun()
                     except Exception as e:
                         st.error(f"Alignment failed: {str(e)}")
+                        st.exception(e)  # Show full traceback in debug mode
 
     # Tab 2: Alignment Results
     with tab2:
@@ -199,14 +436,42 @@ def main():
             </style>
             """, unsafe_allow_html=True)
 
-            alignment_html = f"""
-            <div class="alignment-text">
-            Seq1: {results['aligned_seq1']}<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{results['alignment_visual'].replace('|', '┃').replace('.', '×').replace(' ', '&nbsp;')}<br>
-            Seq2: {results['aligned_seq2']}
-            </div>
-            """
-            st.markdown(alignment_html, unsafe_allow_html=True)
+            # For longer alignments, show a truncated view with option to expand
+            alignment_length = len(results['aligned_seq1'])
+            display_limit = 100
+
+            if alignment_length > display_limit:
+                st.info(f"Showing first {display_limit} characters of alignment (total length: {alignment_length})")
+
+                alignment_html = f"""
+                <div class="alignment-text">
+                Seq1: {results['aligned_seq1'][:display_limit]}...<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{results['alignment_visual'][:display_limit].replace('|', '┃').replace('.', '×').replace(' ', '&nbsp;')}...<br>
+                Seq2: {results['aligned_seq2'][:display_limit]}...
+                </div>
+                """
+                st.markdown(alignment_html, unsafe_allow_html=True)
+
+                # Show full alignment in expander
+                with st.expander("Show full alignment"):
+                    full_alignment_html = f"""
+                    <div class="alignment-text">
+                    Seq1: {results['aligned_seq1']}<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{results['alignment_visual'].replace('|', '┃').replace('.', '×').replace(' ', '&nbsp;')}<br>
+                    Seq2: {results['aligned_seq2']}
+                    </div>
+                    """
+                    st.markdown(full_alignment_html, unsafe_allow_html=True)
+            else:
+                # For shorter alignments, show everything directly
+                alignment_html = f"""
+                <div class="alignment-text">
+                Seq1: {results['aligned_seq1']}<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{results['alignment_visual'].replace('|', '┃').replace('.', '×').replace(' ', '&nbsp;')}<br>
+                Seq2: {results['aligned_seq2']}
+                </div>
+                """
+                st.markdown(alignment_html, unsafe_allow_html=True)
 
             # Alignment statistics
             matches = results['alignment_visual'].count('|')
@@ -262,30 +527,33 @@ def main():
             # Select visualization type
             viz_type = st.radio(
                 "Select Visualization",
-                ["Score Matrix", "Traceback Matrix", "Alignment Visualization"],
+                ["Score Matrix", "Alignment Visualization"],
                 horizontal=True
             )
 
+            # Show a warning for larger sequences
+            seq_len1, seq_len2 = len(results['seq1']), len(results['seq2'])
+            if seq_len1 > max_size or seq_len2 > max_size:
+                st.info(f"""
+                ℹ️ One or both sequences exceed the maximum size ({max_size}) for detailed visualization.
+                Using simplified visualization mode. Adjust the 'Max Size for Detailed View' in settings if needed.
+                """)
+
             # Create figure based on selection
             try:
-                plt.figure(figsize=(10, 8))
-
                 if viz_type == "Score Matrix":
-                    fig = nw.visualize_matrix(
+                    fig = nw.visualize_matrix_scalable(
                         results['seq1'],
                         results['seq2'],
-                        title="Score Matrix"
-                    )
-                elif viz_type == "Traceback Matrix":
-                    fig = nw.visualize_traceback(
-                        results['seq1'],
-                        results['seq2']
+                        title="Score Matrix",
+                        max_size=max_size
                     )
                 else:  # Alignment Visualization
-                    fig = nw.visualize_alignment(
+                    fig = nw.visualize_alignment_scalable(
                         results['aligned_seq1'],
                         results['aligned_seq2'],
-                        results['alignment_visual']
+                        results['alignment_visual'],
+                        max_width=max_alignment_width
                     )
 
                 # Display the plot
@@ -303,9 +571,11 @@ def main():
                     mime="image/png",
                 )
 
+                # Close the current figure properly
                 plt.close()
             except Exception as e:
                 st.error(f"Visualization failed: {str(e)}")
+                st.exception(e)  # Show full traceback in debug mode
         else:
             st.info("Run an alignment to see visualizations")
 
@@ -340,6 +610,30 @@ def main():
         - Evolutionary relationships between species
         - Mutation analysis
         - Gene finding and annotation
+        """)
+
+    with st.expander("Large Sequence Handling"):
+        st.markdown("""
+        ### Working with Larger Sequences
+
+        This application has been optimized to handle sequences of various sizes:
+
+        #### Visualization Scaling
+
+        - **Small sequences** (under the "Max Size" threshold): Full detailed visualization with cell values, arrows, and character labels
+        - **Larger sequences**: Simplified visualization showing the overall structure and path
+
+        #### Performance Considerations
+
+        - The Needleman-Wunsch algorithm has O(mn) time and space complexity, where m and n are the sequence lengths
+        - Very large sequences (over ~1000 bases) may become slow or run out of memory
+        - For production use with large sequences, consider specialized bioinformatics tools
+
+        #### Tips for Large Sequences
+
+        - Adjust the visualization parameters in the sidebar
+        - For sequences over 500 bases, consider using a subset for initial exploration
+        - The alignment results are shown even when visualizations are simplified
         """)
 
 
