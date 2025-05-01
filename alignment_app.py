@@ -29,7 +29,6 @@ def main():
     This application implements multiple sequence alignment algorithms to compare DNA, RNA, or protein sequences:
 
     - **Global Alignment** (Needleman-Wunsch): Aligns entire sequences from end to end
-    - **Local Alignment** (Smith-Waterman): Finds the highest-scoring alignment between subsequences
     - **Semi-Global Alignment**: Allows free end gaps for one or both sequences
 
     Choose your alignment method and parameters to analyze sequences of interest.
@@ -43,10 +42,9 @@ def main():
         st.subheader("Alignment Method")
         alignment_mode = st.radio(
             "Select Alignment Algorithm",
-            ["Global (Needleman-Wunsch)", "Local (Smith-Waterman)", "Semi-Global"],
+            ["Global (Needleman-Wunsch)", "Semi-Global"],
             help="""
             Global: Aligns entire sequences from end to end (best for similar sequences)
-            Local: Finds the best matching subsequences (best for finding motifs/domains)
             Semi-Global: Allows free end gaps (best for overlapping sequences)
             """
         )
@@ -79,7 +77,7 @@ def main():
         mismatch_penalty = st.slider("Mismatch Penalty", -5.0, 0.0, -1.0, 0.5)
         gap_penalty = st.slider("Gap Penalty", -5.0, 0.0, -2.0, 0.5)
 
-        # Sequence type selection
+        # Sequence type
         st.subheader("Sequence Type")
         seq_type = st.radio("Select Sequence Type", ["DNA/RNA", "Protein"])
 
@@ -206,7 +204,7 @@ def main():
             else:
                 # Run alignment with progress tracking
                 with st.spinner(
-                        f"Running {'global' if alignment_mode == 'Global (Needleman-Wunsch)' else 'local' if alignment_mode == 'Local (Smith-Waterman)' else 'semi-global'} alignment..."):
+                        f"Running {'global' if alignment_mode == 'Global (Needleman-Wunsch)' else 'semi-global'} alignment..."):
                     try:
                         # Initialize the SequenceAlignment object with parameters
                         sa = SequenceAlignment(
@@ -240,25 +238,6 @@ def main():
                                 'score': score,
                                 'sa': sa  # Store the SequenceAlignment object for visualizations
                             }
-
-                        elif alignment_mode == "Local (Smith-Waterman)":
-                            aligned_seq1, aligned_seq2, alignment_visual, score, start_pos, end_pos = sa.align(
-                                seq1_clean, seq2_clean, mode='local'
-                            )
-                            # Store results in session state
-                            st.session_state.alignment_results = {
-                                'mode': 'local',
-                                'seq1': seq1_clean,
-                                'seq2': seq2_clean,
-                                'aligned_seq1': aligned_seq1,
-                                'aligned_seq2': aligned_seq2,
-                                'alignment_visual': alignment_visual,
-                                'score': score,
-                                'start_pos': start_pos,
-                                'end_pos': end_pos,
-                                'sa': sa  # Store the SequenceAlignment object for visualizations
-                            }
-
                         else:  # Semi-Global
                             aligned_seq1, aligned_seq2, alignment_visual, score = sa.semi_global_align(
                                 seq1_clean, seq2_clean, penalize_ends=penalize_ends
@@ -297,8 +276,6 @@ def main():
             # Display alignment score
             if mode == 'global':
                 st.subheader(f"Global Alignment Score: {results['score']:.2f}")
-            elif mode == 'local':
-                st.subheader(f"Local Alignment Score: {results['score']:.2f}")
             else:  # semi-global
                 st.subheader(f"Semi-Global Alignment Score: {results['score']:.2f}")
                 st.info(f"End gap penalty mode: {results['penalize_ends']}")
@@ -316,13 +293,6 @@ def main():
             # Display alignment
             if mode == 'global':
                 st.markdown("### Global Alignment")
-            elif mode == 'local':
-                st.markdown("### Local Alignment")
-                # Show position info for local alignment
-                start_pos = results['start_pos']
-                end_pos = results['end_pos']
-                st.info(
-                    f"Alignment region: Seq1[{start_pos[0]}:{end_pos[0] + 1}], Seq2[{start_pos[1]}:{end_pos[1] + 1}]")
             else:
                 st.markdown("### Semi-Global Alignment")
 
@@ -409,11 +379,6 @@ def main():
             result_text += f"Sequence 2: {results['seq2']}\n\n"
             result_text += f"# Alignment score: {results['score']:.2f}\n"
 
-            if mode == 'local':
-                start_pos = results['start_pos']
-                end_pos = results['end_pos']
-                result_text += f"# Alignment region: Seq1[{start_pos[0]}:{end_pos[0] + 1}], Seq2[{start_pos[1]}:{end_pos[1] + 1}]\n"
-
             result_text += f"\n# Alignment:\n"
             result_text += f"Seq1: {results['aligned_seq1']}\n"
             result_text += f"      {results['alignment_visual']}\n"
@@ -458,8 +423,6 @@ def main():
                     # Generate appropriate title based on alignment mode
                     if mode == 'global':
                         title = "Needleman-Wunsch Score Matrix"
-                    elif mode == 'local':
-                        title = "Smith-Waterman Score Matrix"
                     else:  # semi-global
                         title = f"Semi-Global Alignment Score Matrix (mode: {results['penalize_ends']})"
 
@@ -470,26 +433,12 @@ def main():
                         max_size=max_size
                     )
                 else:  # Alignment Visualization
-                    # Create appropriate visualization based on alignment mode
-                    if mode == 'local':
-                        # For local alignment, include sequence context
-                        fig = sa.visualize_alignment_scalable(
-                            results['aligned_seq1'],
-                            results['aligned_seq2'],
-                            results['alignment_visual'],
-                            results['seq1'],
-                            results['seq2'],
-                            results['start_pos'],
-                            results['end_pos'],
-                            max_width=max_alignment_width
-                        )
-                    else:  # global or semi-global
-                        fig = sa.visualize_alignment_scalable(
-                            results['aligned_seq1'],
-                            results['aligned_seq2'],
-                            results['alignment_visual'],
-                            max_width=max_alignment_width
-                        )
+                    fig = sa.visualize_alignment_scalable(
+                        results['aligned_seq1'],
+                        results['aligned_seq2'],
+                        results['alignment_visual'],
+                        max_width=max_alignment_width
+                    )
 
                 # Display the plot
                 st.pyplot(fig)
@@ -520,7 +469,7 @@ def main():
         st.markdown("""
         ### Sequence Alignment Algorithms
 
-        This application implements three types of sequence alignment algorithms:
+        This application implements two types of sequence alignment algorithms:
 
         #### 1. Global Alignment (Needleman-Wunsch)
 
@@ -532,17 +481,7 @@ def main():
           - Penalizes gaps at the beginning and end
           - Provides a complete picture of overall similarity
 
-        #### 2. Local Alignment (Smith-Waterman)
-
-        - **Purpose**: Find the highest-scoring alignment between subsequences
-        - **Best for**: Sequences that share regions of similarity but differ elsewhere
-        - **Applications**: Finding domains, motifs, or similar regions within otherwise different sequences
-        - **Characteristics**:
-          - Can identify isolated regions of similarity
-          - No penalty for unaligned regions
-          - More sensitive for detecting distant relationships
-
-        #### 3. Semi-Global Alignment
+        #### 2. Semi-Global Alignment
 
         - **Purpose**: Allow free gaps at the ends of one or both sequences
         - **Best for**: Overlapping sequences or when terminal gaps shouldn't be penalized
@@ -554,7 +493,7 @@ def main():
 
         ### Algorithm Details
 
-        All of these algorithms use dynamic programming, filling a scoring matrix based on the following values:
+        Both algorithms use dynamic programming, filling a scoring matrix based on the following values:
 
         - **Match score**: Reward for matching characters
         - **Mismatch penalty**: Penalty for mismatched characters
@@ -574,14 +513,6 @@ def main():
         - You need to compare entire sequences
         - You're working with closely related organisms
         - You want to evaluate overall similarity
-
-        #### Use Local Alignment (Smith-Waterman) when:
-
-        - Your sequences have very different lengths
-        - You're looking for conserved domains or motifs
-        - Sequences might only share specific regions of similarity
-        - Looking for similar regions in otherwise unrelated sequences
-        - Searching for a short sequence within a longer one
 
         #### Use Semi-Global Alignment when:
 
