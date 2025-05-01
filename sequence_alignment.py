@@ -222,6 +222,47 @@ class SequenceAlignment:
         plt.tight_layout()
         return plt
 
+    def visualize_traceback(self, seq1, seq2, title=None):
+        """Visualize the traceback matrix."""
+        if self.traceback is None:
+            raise ValueError("Run align() first to generate the traceback matrix.")
+
+        if title is None:
+            if self.alignment_mode == 'global':
+                title = "Needleman-Wunsch Traceback Matrix"
+            else:
+                title = "Semi-Global Traceback Matrix"
+
+        m, n = len(seq1) + 1, len(seq2) + 1
+        plt.figure(figsize=(10, 8))
+
+        # Create a custom colormap for different directions
+        cmap = plt.cm.get_cmap('Blues', 4)
+
+        # Create a grid of arrows based on the traceback matrix
+        arrow_grid = np.zeros((m, n))
+        for i in range(m):
+            for j in range(n):
+                if "↖" in self.traceback[i, j]:
+                    arrow_grid[i, j] = 3  # Diagonal
+                elif "↑" in self.traceback[i, j]:
+                    arrow_grid[i, j] = 2  # Up
+                elif "←" in self.traceback[i, j]:
+                    arrow_grid[i, j] = 1  # Left
+
+        # Create labels with sequence characters
+        row_labels = [''] + list(seq1)
+        col_labels = [''] + list(seq2)
+
+        # Plot heatmap
+        ax = sns.heatmap(arrow_grid, cmap=cmap, xticklabels=col_labels,
+                         yticklabels=row_labels, annot=self.traceback, fmt='',
+                         cbar=False)
+
+        plt.title(title)
+        plt.tight_layout()
+        return plt
+
     def visualize_matrix_scalable(self, seq1, seq2, title=None, max_size=20):
         """
         Visualize the score matrix as a heatmap with automatic scaling for larger sequences.

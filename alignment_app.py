@@ -405,7 +405,7 @@ def main():
             # Select visualization type
             viz_type = st.radio(
                 "Select Visualization",
-                ["Score Matrix", "Alignment Visualization"],
+                ["Score Matrix", "Traceback Matrix", "Alignment Visualization"],
                 horizontal=True
             )
 
@@ -431,6 +431,18 @@ def main():
                         results['seq2'],
                         title=title,
                         max_size=max_size
+                    )
+                elif viz_type == "Traceback Matrix":
+                    # Generate appropriate title based on alignment mode
+                    if mode == 'global':
+                        title = "Needleman-Wunsch Traceback Matrix"
+                    else:  # semi-global
+                        title = f"Semi-Global Alignment Traceback Matrix (mode: {results['penalize_ends']})"
+
+                    fig = sa.visualize_traceback(
+                        results['seq1'],
+                        results['seq2'],
+                        title=title
                     )
                 else:  # Alignment Visualization
                     fig = sa.visualize_alignment_scalable(
